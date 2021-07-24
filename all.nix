@@ -1,19 +1,21 @@
 with (import <nixpkgs> {});
-rec {
+with {
+  libXaw = xorg.libXaw;
+  Xaw3d = null;
+  gconf = null;
+  alsa-lib = null;
+  acl = null;
+  gpm = null;
+  inherit (darwin.apple_sdk.frameworks) AppKit GSS ImageIO;
+  inherit (darwin) sigtool;
+};
 
-  file_generic = {
-    version
-    , sha256
-    , versionModifier ? ""
-    , pname ? "emacs"
-    , name ? "emacs-${version}${versionModifier}"
-    , patches ? [ ]
-  }:
-    { stdenv, lib, fetchurl, fetchpatch, ncurses, xlibsWrapper, libXaw, libXpm
-    , Xaw3d, libXcursor,  pkg-config, gettext, libXft, dbus, libpng, libjpeg, giflib
-    , libtiff, librsvg, gconf, libxml2, imagemagick, gnutls, libselinux
-    , alsa-lib, cairo, acl, gpm, AppKit, GSS, ImageIO, m17n_lib, libotf
-    , sigtool, jansson, harfbuzz
+callPackage ({
+    stdenv, lib, fetchurl, fetchpatch, ncurses, xlibsWrapper, libXaw, libXpm
+    , libXcursor,  pkg-config, gettext, libXft, dbus, libpng, libjpeg, giflib
+    , libtiff, librsvg, libxml2, imagemagick, gnutls, libselinux
+    , cairo, m17n_lib, libotf
+    , jansson, harfbuzz
     , dontRecurseIntoAttrs ,emacsPackagesFor
     , libgccjit, targetPlatform, makeWrapper # native-comp params
     , systemd ? null
@@ -27,7 +29,7 @@ rec {
     , srcRepo ? false, autoreconfHook ? null, texinfo ? null
     , siteStart ? ./site-start.el
     , nativeComp ? false
-    , withImageMagick ? lib.versionOlder version "27" && (withX || withNS)
+    , withImageMagick ? false
     , toolkit ? (
       if withGTK2 then "gtk2"
       else if withGTK3 then "gtk3"
@@ -46,17 +48,27 @@ rec {
     assert withXwidgets -> withGTK3 && webkitgtk != null;
 
 
-    let emacs = stdenv.mkDerivation (lib.optionalAttrs nativeComp {
+    stdenv.mkDerivation (lib.optionalAttrs nativeComp {
           NATIVE_FULL_AOT = "1";
           LIBRARY_PATH = "${lib.getLib stdenv.cc.libc}/lib";
         } // {
-          inherit pname version;
 
-          patches = patches fetchpatch;
+          version = "27.2";
+
+          pname = "emacs";
+
+          patches = [
+            ./tramp-detect-wrapped-gvfsd.patch
+            (fetchpatch {
+              name = "fix-aarch64-darwin-triplet.patch";
+              url = "https://git.savannah.gnu.org/cgit/emacs.git/patch/?id=a88f63500e475f842e5fbdd9abba4ce122cdb082";
+              sha256 = "sha256-RF9b5PojFUAjh2TDUW4+HaWveV30Spy1iAXhaWf1ZVg=";
+            })
+          ];
 
           src = fetchurl {
-            url = "mirror://gnu/emacs/${name}.tar.xz";
-            inherit sha256;
+            url = "mirror://gnu/emacs/emacs-27.2.tar.xz";
+            sha256 = "sha256-tKfMTnjmPzeGJOCRkhW5EK9bsqCvyBn60pgnLp9Awbk=";
           };
 
           enableParallelBuilding = true;
@@ -221,32 +233,5 @@ rec {
       separately.
     '';
           };
-        });
-    in emacs;
-
-  file27_nix = file_generic (rec {
-    version = "27.2";
-    sha256 = "sha256-tKfMTnjmPzeGJOCRkhW5EK9bsqCvyBn60pgnLp9Awbk=";
-    patches = fetchpatch: [
-      ./tramp-detect-wrapped-gvfsd.patch
-      (fetchpatch {
-        name = "fix-aarch64-darwin-triplet.patch";
-        url = "https://git.savannah.gnu.org/cgit/emacs.git/patch/?id=a88f63500e475f842e5fbdd9abba4ce122cdb082";
-        sha256 = "sha256-RF9b5PojFUAjh2TDUW4+HaWveV30Spy1iAXhaWf1ZVg=";
-      })
-    ];
-  });
-
-  emacs27 = callPackage file27_nix {
-    # use override to enable additional features
-    libXaw = xorg.libXaw;
-    Xaw3d = null;
-    gconf = null;
-    alsa-lib = null;
-    acl = null;
-    gpm = null;
-    inherit (darwin.apple_sdk.frameworks) AppKit GSS ImageIO;
-    inherit (darwin) sigtool;
-  };
-
-}
+        }
+    )) {}
