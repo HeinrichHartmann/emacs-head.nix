@@ -29,7 +29,7 @@ callPackage ({
     , srcRepo ? false, autoreconfHook ? null
     , texinfo ? null
     , siteStart ? ./site-start.el
-    , nativeComp ? false
+    , nativeComp ? true
     , withImageMagick ? false
     , toolkit ? (
       if withGTK2 then "gtk2"
