@@ -57,18 +57,11 @@ callPackage ({
 
           pname = "emacs";
 
-          patches = [
-            ./tramp-detect-wrapped-gvfsd.patch
-            (fetchpatch {
-              name = "fix-aarch64-darwin-triplet.patch";
-              url = "https://git.savannah.gnu.org/cgit/emacs.git/patch/?id=a88f63500e475f842e5fbdd9abba4ce122cdb082";
-              sha256 = "sha256-RF9b5PojFUAjh2TDUW4+HaWveV30Spy1iAXhaWf1ZVg=";
-            })
-          ];
-
-          src = fetchurl {
-            url = "mirror://gnu/emacs/emacs-27.2.tar.xz";
-            sha256 = "sha256-tKfMTnjmPzeGJOCRkhW5EK9bsqCvyBn60pgnLp9Awbk=";
+          src = fetchFromGitHub {
+            owner = "emacs-mirror";
+            repo = "emacs";
+            rev = "4d439744685b6b2492685124994120ebd1fa4abb";
+            sha256 = "00vxb83571r39r0dbzkr9agjfmqs929lhq9rwf8akvqghc412apf";
           };
 
           enableParallelBuilding = true;
