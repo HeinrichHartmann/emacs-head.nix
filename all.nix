@@ -26,7 +26,8 @@ callPackage ({
     , withXwidgets ? false, webkitgtk ? null, wrapGAppsHook ? null, glib-networking ? null
     , withMotif ? false, motif ? null
     , withCsrc ? true
-    , srcRepo ? false, autoreconfHook ? null, texinfo ? null
+    , srcRepo ? false, autoreconfHook ? null
+    , texinfo ? null
     , siteStart ? ./site-start.el
     , nativeComp ? false
     , withImageMagick ? false
@@ -54,9 +55,7 @@ callPackage ({
           LIBRARY_PATH = "${lib.getLib stdenv.cc.libc}/lib";
         } // {
 
-          version = "27.2";
-
-          pname = "emacs";
+          pname = "emacs-head";
 
           src = fetchFromGitHub {
             owner = "emacs-mirror";
@@ -64,6 +63,7 @@ callPackage ({
             rev = "4d439744685b6b2492685124994120ebd1fa4abb";
             sha256 = "00vxb83571r39r0dbzkr9agjfmqs929lhq9rwf8akvqghc412apf";
           };
+          version = "28.05";
 
           enableParallelBuilding = true;
 
@@ -114,7 +114,7 @@ callPackage ({
                               ++ lib.optional (withX && (withGTK3 || withXwidgets)) wrapGAppsHook;
 
           buildInputs =
-            [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev autoconf ]
+            [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev autoconf texinfo ]
             ++ lib.optionals stdenv.isLinux [ dbus libselinux systemd ]
             ++ lib.optionals withX
               [ xlibsWrapper libXaw Xaw3d libXpm libpng libjpeg giflib libtiff libXft
