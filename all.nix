@@ -35,6 +35,7 @@ callPackage ({
       else if withGTK3 then "gtk3"
       else if withMotif then "motif"
       else "lucid")
+    , autoconf
     }:
 
     assert (libXft != null) -> libpng != null;      # probably a bug
@@ -113,7 +114,7 @@ callPackage ({
                               ++ lib.optional (withX && (withGTK3 || withXwidgets)) wrapGAppsHook;
 
           buildInputs =
-            [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev ]
+            [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev autoconf ]
             ++ lib.optionals stdenv.isLinux [ dbus libselinux systemd ]
             ++ lib.optionals withX
               [ xlibsWrapper libXaw Xaw3d libXpm libpng libjpeg giflib libtiff libXft
@@ -130,6 +131,8 @@ callPackage ({
             ++ lib.optionals nativeComp [ libgccjit ];
 
           hardeningDisable = [ "format" ];
+
+          preConfigure = "./autogen.sh";
 
           configureFlags = [
             "--disable-build-details" # for a (more) reproducible build
