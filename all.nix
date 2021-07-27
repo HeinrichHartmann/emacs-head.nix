@@ -49,8 +49,8 @@ callPackage ({
     assert withGTK3 -> !withGTK2 && gtk3-x11 != null;
     assert withXwidgets -> withGTK3 && webkitgtk != null;
 
-
-    stdenv.mkDerivation (lib.optionalAttrs nativeComp {
+    stdenv.mkDerivation (
+      lib.optionalAttrs nativeComp {
           NATIVE_FULL_AOT = "1";
           LIBRARY_PATH = "${lib.getLib stdenv.cc.libc}/lib";
         } // {
@@ -71,7 +71,6 @@ callPackage ({
             (lib.optionalString srcRepo ''
       rm -fr .git
     '')
-
             # Reduce closure size by cleaning the environment of the emacs dumper
             ''
       substituteInPlace src/Makefile.in \
@@ -116,9 +115,7 @@ callPackage ({
           buildInputs =
             [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev autoconf texinfo ]
             ++ lib.optionals stdenv.isLinux [ dbus libselinux systemd ]
-            ++ lib.optionals withX
-              [ xlibsWrapper libXaw Xaw3d libXpm libpng libjpeg giflib libtiff libXft
-                gconf cairo ]
+            ++ lib.optionals withX [ xlibsWrapper libXaw Xaw3d libXpm libpng libjpeg giflib libtiff libXft gconf cairo ]
             ++ lib.optionals (withX || withNS) [ librsvg ]
             ++ lib.optionals withImageMagick [ imagemagick ]
             ++ lib.optionals (stdenv.isLinux && withX) [ m17n_lib libotf ]
@@ -138,15 +135,13 @@ callPackage ({
             "--disable-build-details" # for a (more) reproducible build
             "--with-modules"
             "--with-json"
-          ] ++
-          (lib.optional stdenv.isDarwin
-            (lib.withFeature withNS "ns")) ++
-          (if withNS
-           then [ "--disable-ns-self-contained" ]
-           else if withX
-           then [ "--with-x-toolkit=${toolkit}" "--with-xft" "--with-cairo" ]
-           else [ "--with-x=no" "--with-xpm=no" "--with-jpeg=no" "--with-png=no"
-                  "--with-gif=no" "--with-tiff=no" ])
+          ]
+          ++ (lib.optional stdenv.isDarwin (lib.withFeature withNS "ns"))
+          ++ (if withNS
+              then [ "--disable-ns-self-contained" ]
+              else if withX
+              then [ "--with-x-toolkit=${toolkit}" "--with-xft" "--with-cairo" ]
+              else [ "--with-x=no" "--with-xpm=no" "--with-jpeg=no" "--with-png=no" "--with-gif=no" "--with-tiff=no" ])
           ++ lib.optional withXwidgets "--with-xwidgets"
           ++ lib.optional nativeComp "--with-native-compilation"
           ++ lib.optional withImageMagick "--with-imagemagick"
@@ -155,51 +150,49 @@ callPackage ({
           installTargets = [ "tags" "install" ];
 
           postInstall = ''
-    mkdir -p $out/share/emacs/site-lisp
-    cp ${siteStart} $out/share/emacs/site-lisp/site-start.el
+              mkdir -p $out/share/emacs/site-lisp
+              cp ${siteStart} $out/share/emacs/site-lisp/site-start.el
 
-    $out/bin/emacs --batch -f batch-byte-compile $out/share/emacs/site-lisp/site-start.el
+              $out/bin/emacs --batch -f batch-byte-compile $out/share/emacs/site-lisp/site-start.el
 
-    siteVersionDir=`ls $out/share/emacs | grep -v site-lisp | head -n 1`
+              siteVersionDir=`ls $out/share/emacs | grep -v site-lisp | head -n 1`
 
-    rm -r $out/share/emacs/$siteVersionDir/site-lisp
-  '' + lib.optionalString withCsrc ''
-    for srcdir in src lisp lwlib ; do
-      dstdir=$out/share/emacs/$siteVersionDir/$srcdir
-      mkdir -p $dstdir
-      find $srcdir -name "*.[chm]" -exec cp {} $dstdir \;
-      cp $srcdir/TAGS $dstdir
-      echo '((nil . ((tags-file-name . "TAGS"))))' > $dstdir/.dir-locals.el
-    done
-  '' + lib.optionalString withNS ''
-    mkdir -p $out/Applications
-    mv nextstep/Emacs.app $out/Applications
-  '' + lib.optionalString (nativeComp && withNS) ''
-    ln -snf $out/lib/emacs/*/native-lisp $out/Applications/Emacs.app/Contents/native-lisp
-  '' + lib.optionalString nativeComp ''
-    echo "Generating native-compiled trampolines..."
-    # precompile trampolines in parallel, but avoid spawning one process per trampoline.
-    # 1000 is a rough lower bound on the number of trampolines compiled.
-    $out/bin/emacs --batch --eval "(mapatoms (lambda (s) \
-      (when (subr-primitive-p (symbol-function s)) (print s))))" \
-      | xargs -n $((1000/NIX_BUILD_CORES + 1)) -P $NIX_BUILD_CORES \
-        $out/bin/emacs --batch -l comp --eval "(while argv \
-          (comp-trampoline-compile (intern (pop argv))))"
-    mkdir -p $out/share/emacs/native-lisp
-    $out/bin/emacs --batch \
-      --eval "(add-to-list 'native-comp-eln-load-path \"$out/share/emacs/native-lisp\")" \
-      -f batch-native-compile $out/share/emacs/site-lisp/site-start.el
-  '';
+              rm -r $out/share/emacs/$siteVersionDir/site-lisp
+              '' + lib.optionalString withCsrc ''
+              for srcdir in src lisp lwlib ; do
+                dstdir=$out/share/emacs/$siteVersionDir/$srcdir
+                mkdir -p $dstdir
+                find $srcdir -name "*.[chm]" -exec cp {} $dstdir \;
+                cp $srcdir/TAGS $dstdir
+                echo '((nil . ((tags-file-name . "TAGS"))))' > $dstdir/.dir-locals.el
+              done
+              '' + lib.optionalString withNS ''
+              mkdir -p $out/Applications
+              mv nextstep/Emacs.app $out/Applications
+              '' + lib.optionalString (nativeComp && withNS) ''
+              ln -snf $out/lib/emacs/*/native-lisp $out/Applications/Emacs.app/Contents/native-lisp
+              '' + lib.optionalString nativeComp ''
+              echo "Generating native-compiled trampolines..."
+              # precompile trampolines in parallel, but avoid spawning one process per trampoline.
+              # 1000 is a rough lower bound on the number of trampolines compiled.
+              $out/bin/emacs --batch --eval "(mapatoms (lambda (s) \
+                (when (subr-primitive-p (symbol-function s)) (print s))))" \
+                | xargs -n $((1000/NIX_BUILD_CORES + 1)) -P $NIX_BUILD_CORES \
+                  $out/bin/emacs --batch -l comp --eval "(while argv \
+                    (comp-trampoline-compile (intern (pop argv))))"
+              mkdir -p $out/share/emacs/native-lisp
+              $out/bin/emacs --batch \
+                --eval "(add-to-list 'native-comp-eln-load-path \"$out/share/emacs/native-lisp\")" \
+                -f batch-native-compile $out/share/emacs/site-lisp/site-start.el
+              '';
 
           postFixup = lib.concatStringsSep "\n" [
-
             (lib.optionalString (stdenv.isLinux && withX && toolkit == "lucid") ''
-      patchelf --set-rpath \
-        "$(patchelf --print-rpath "$out/bin/emacs"):${lib.makeLibraryPath [ libXcursor ]}" \
-        "$out/bin/emacs"
-      patchelf --add-needed "libXcursor.so.1" "$out/bin/emacs"
-    '')
-          ];
+                patchelf --set-rpath \
+                  "$(patchelf --print-rpath "$out/bin/emacs"):${lib.makeLibraryPath [ libXcursor ]}" \
+                  "$out/bin/emacs"
+                patchelf --add-needed "libXcursor.so.1" "$out/bin/emacs"
+                '') ];
 
           passthru = {
             inherit nativeComp;
@@ -214,21 +207,21 @@ callPackage ({
             platforms   = platforms.all;
 
             longDescription = ''
-      GNU Emacs is an extensible, customizable text editor—and more.  At its
-      core is an interpreter for Emacs Lisp, a dialect of the Lisp
-      programming language with extensions to support text editing.
+                GNU Emacs is an extensible, customizable text editor—and more.  At its
+                core is an interpreter for Emacs Lisp, a dialect of the Lisp
+                programming language with extensions to support text editing.
 
-      The features of GNU Emacs include: content-sensitive editing modes,
-      including syntax coloring, for a wide variety of file types including
-      plain text, source code, and HTML; complete built-in documentation,
-      including a tutorial for new users; full Unicode support for nearly all
-      human languages and their scripts; highly customizable, using Emacs
-      Lisp code or a graphical interface; a large number of extensions that
-      add other functionality, including a project planner, mail and news
-      reader, debugger interface, calendar, and more.  Many of these
-      extensions are distributed with GNU Emacs; others are available
-      separately.
-    '';
+                The features of GNU Emacs include: content-sensitive editing modes,
+                including syntax coloring, for a wide variety of file types including
+                plain text, source code, and HTML; complete built-in documentation,
+                including a tutorial for new users; full Unicode support for nearly all
+                human languages and their scripts; highly customizable, using Emacs
+                Lisp code or a graphical interface; a large number of extensions that
+                add other functionality, including a project planner, mail and news
+                reader, debugger interface, calendar, and more.  Many of these
+                extensions are distributed with GNU Emacs; others are available
+                separately.
+                '';
           };
         }
     )) {}
