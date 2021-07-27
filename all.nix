@@ -30,7 +30,7 @@ callPackage ({
     , texinfo ? null
     , siteStart ? ./site-start.el
     , nativeComp ? true
-    , withImageMagick ? false
+    , withImageMagick ? true
     , toolkit ? (
       if withGTK2 then "gtk2"
       else if withGTK3 then "gtk3"
@@ -137,6 +137,7 @@ callPackage ({
           configureFlags = [
             "--disable-build-details" # for a (more) reproducible build
             "--with-modules"
+            "--with-json"
           ] ++
           (lib.optional stdenv.isDarwin
             (lib.withFeature withNS "ns")) ++
