@@ -1,11 +1,6 @@
 with (import <nixpkgs> {});
 with {
   libXaw = xorg.libXaw;
-  Xaw3d = null;
-  gconf = null;
-  alsa-lib = null;
-  acl = null;
-  gpm = null;
   inherit (darwin.apple_sdk.frameworks) AppKit GSS ImageIO;
   inherit (darwin) sigtool;
 };
@@ -113,9 +108,9 @@ callPackage ({
                               ++ lib.optional (withX && (withGTK3 || withXwidgets)) wrapGAppsHook;
 
           buildInputs =
-            [ ncurses gconf libxml2 gnutls alsa-lib acl gpm gettext jansson harfbuzz.dev autoconf texinfo ]
+            [ ncurses libxml2 gnutls gettext jansson harfbuzz.dev autoconf texinfo ]
             ++ lib.optionals stdenv.isLinux [ dbus libselinux systemd ]
-            ++ lib.optionals withX [ xlibsWrapper libXaw Xaw3d libXpm libpng libjpeg giflib libtiff libXft gconf cairo ]
+            ++ lib.optionals withX [ xlibsWrapper libXaw libXpm libpng libjpeg giflib libtiff libXft cairo ]
             ++ lib.optionals (withX || withNS) [ librsvg ]
             ++ lib.optionals withImageMagick [ imagemagick ]
             ++ lib.optionals (stdenv.isLinux && withX) [ m17n_lib libotf ]
