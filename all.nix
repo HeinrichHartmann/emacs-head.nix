@@ -1,54 +1,60 @@
 with (import <nixpkgs> {});
-with {
-  libXaw = xorg.libXaw;
-  inherit (darwin.apple_sdk.frameworks) AppKit GSS ImageIO;
-  inherit (darwin) sigtool;
-};
 
 callPackage ({
-    stdenv, lib, fetchurl, fetchpatch, ncurses, xlibsWrapper, libXaw, libXpm
-    , libXcursor,  pkg-config, gettext, libXft, dbus, libpng, libjpeg, giflib
-    , libtiff, librsvg, libxml2, imagemagick, gnutls, libselinux
-    , cairo, m17n_lib, libotf
-    , jansson, harfbuzz
-    , dontRecurseIntoAttrs ,emacsPackagesFor
-    , libgccjit, targetPlatform, makeWrapper # native-comp params
-    , systemd ? null
-    , withX ? !stdenv.isDarwin
-    , withNS ? stdenv.isDarwin
-    , withGTK2 ? false, gtk2-x11 ? null
-    , withGTK3 ? true, gtk3-x11 ? null, gsettings-desktop-schemas ? null
-    , withXwidgets ? false, webkitgtk ? null, wrapGAppsHook ? null, glib-networking ? null
-    , withMotif ? false, motif ? null
-    , withCsrc ? true
-    , srcRepo ? false, autoreconfHook ? null
-    , texinfo ? null
-    , siteStart ? ./site-start.el
-    , nativeComp ? true
-    , withImageMagick ? true
-    , toolkit ? (
-      if withGTK2 then "gtk2"
-      else if withGTK3 then "gtk3"
-      else if withMotif then "motif"
-      else "lucid")
-    , autoconf
-    }:
+  stdenv
+  , pkg-config
+  , autoconf
+  , cairo
+  , dbus
+  , fetchpatch
+  , fetchurl
+  , gettext
+  , giflib
+  , gnutls
+  , harfbuzz
+  , imagemagick
+  , jansson
+  , lib
+  , libXaw
+  , libXcursor
+  , libXpm
+  , libgccjit
+  , libjpeg
+  , libotf
+  , librsvg
+  , libselinux
+  , libtiff
+  , libxml2
+  , m17n_lib
+  , makeWrapper # native-comp params
+  , ncurses
+  , targetPlatform
+  , texinfo
+  , xlibsWrapper
+  , AppKit, GSS, ImageIO
+  , sigtool
+}:
 
-    assert (libXft != null) -> libpng != null;      # probably a bug
+  let
+    backendPath = (lib.concatStringsSep " "
+      (builtins.map (x: ''\"-B${x}\"'') [
+        # Paths necessary so the JIT compiler finds its libraries:
+        "${lib.getLib libgccjit}/lib"
+        "${lib.getLib libgccjit}/lib/gcc"
+        "${lib.getLib stdenv.cc.libc}/lib"
+
+        # Executable paths necessary for compilation (ld, as):
+        "${lib.getBin stdenv.cc.cc}/bin"
+        "${lib.getBin stdenv.cc.bintools}/bin"
+        "${lib.getBin stdenv.cc.bintools.bintools}/bin"
+      ]));
+  in
+
     assert stdenv.isDarwin -> libXaw != null;       # fails to link otherwise
-    assert withNS -> !withX;
-    assert withNS -> stdenv.isDarwin;
-    assert (withGTK2 && !withNS) -> withX;
-    assert (withGTK3 && !withNS) -> withX;
-    assert withGTK2 -> !withGTK3 && gtk2-x11 != null;
-    assert withGTK3 -> !withGTK2 && gtk3-x11 != null;
-    assert withXwidgets -> withGTK3 && webkitgtk != null;
 
-    stdenv.mkDerivation (
-      lib.optionalAttrs nativeComp {
+    stdenv.mkDerivation ({
           NATIVE_FULL_AOT = "1";
           LIBRARY_PATH = "${lib.getLib stdenv.cc.libc}/lib";
-        } // {
 
           pname = "emacs-head";
 
@@ -63,66 +69,33 @@ callPackage ({
           enableParallelBuilding = true;
 
           postPatch = lib.concatStringsSep "\n" [
-            (lib.optionalString srcRepo ''
-      rm -fr .git
-    '')
+            "rm -fr .git"
+
             # Reduce closure size by cleaning the environment of the emacs dumper
             ''
-      substituteInPlace src/Makefile.in \
-        --replace 'RUN_TEMACS = ./temacs' 'RUN_TEMACS = env -i ./temacs'
-    ''
-
+               substituteInPlace src/Makefile.in \
+                 --replace 'RUN_TEMACS = ./temacs' 'RUN_TEMACS = env -i ./temacs'
             ''
-    substituteInPlace lisp/international/mule-cmds.el \
-      --replace /usr/share/locale ${gettext}/share/locale
-
-    for makefile_in in $(find . -name Makefile.in -print); do
-      substituteInPlace $makefile_in --replace /bin/pwd pwd
-    done
-    ''
-
+            ''
+               substituteInPlace lisp/international/mule-cmds.el \
+                 --replace /usr/share/locale ${gettext}/share/locale
+               for makefile_in in $(find . -name Makefile.in -print); do
+                 substituteInPlace $makefile_in --replace /bin/pwd pwd
+               done
+            ''
+            ''
             # Make native compilation work both inside and outside of nix build
-            (lib.optionalString nativeComp (let
-              backendPath = (lib.concatStringsSep " "
-                (builtins.map (x: ''\"-B${x}\"'') [
-                  # Paths necessary so the JIT compiler finds its libraries:
-                  "${lib.getLib libgccjit}/lib"
-                  "${lib.getLib libgccjit}/lib/gcc"
-                  "${lib.getLib stdenv.cc.libc}/lib"
-
-                  # Executable paths necessary for compilation (ld, as):
-                  "${lib.getBin stdenv.cc.cc}/bin"
-                  "${lib.getBin stdenv.cc.bintools}/bin"
-                  "${lib.getBin stdenv.cc.bintools.bintools}/bin"
-                ]));
-            in ''
-      substituteInPlace lisp/emacs-lisp/comp.el --replace \
-        "(defcustom native-comp-driver-options nil" \
-        "(defcustom native-comp-driver-options '(${backendPath})"
-    ''))
-            ""
+            substituteInPlace lisp/emacs-lisp/comp.el --replace \
+             "(defcustom native-comp-driver-options nil" \
+             "(defcustom native-comp-driver-options '(${backendPath})"
+            ''
           ];
 
-          nativeBuildInputs = [ pkg-config makeWrapper ]
-                              ++ lib.optionals srcRepo [ autoreconfHook texinfo ]
-                              ++ lib.optional (withX && (withGTK3 || withXwidgets)) wrapGAppsHook;
+          nativeBuildInputs = [ pkg-config makeWrapper ];
 
-          buildInputs =
-            [ ncurses libxml2 gnutls gettext jansson harfbuzz.dev autoconf texinfo ]
-            ++ lib.optionals stdenv.isLinux [ dbus libselinux systemd ]
-            ++ lib.optionals withX [ xlibsWrapper libXaw libXpm libpng libjpeg giflib libtiff libXft cairo ]
-            ++ lib.optionals (withX || withNS) [ librsvg ]
-            ++ lib.optionals withImageMagick [ imagemagick ]
-            ++ lib.optionals (stdenv.isLinux && withX) [ m17n_lib libotf ]
-            ++ lib.optional (withX && withGTK2) gtk2-x11
-            ++ lib.optionals (withX && withGTK3) [ gtk3-x11 gsettings-desktop-schemas ]
-            ++ lib.optional (withX && withMotif) motif
-            ++ lib.optionals (withX && withXwidgets) [ webkitgtk glib-networking ]
-            ++ lib.optionals withNS [ AppKit GSS ImageIO ]
-            ++ lib.optionals stdenv.isDarwin [ sigtool ]
-            ++ lib.optionals nativeComp [ libgccjit ];
-
-          hardeningDisable = [ "format" ];
+          buildInputs = [ ncurses libxml2 gnutls gettext jansson harfbuzz.dev autoconf texinfo libgccjit ]
+                        ++ lib.optionals stdenv.isLinux [ dbus libselinux ]
+                        ++ lib.optionals stdenv.isDarwin [ sigtool librsvg AppKit GSS ImageIO imagemagick ];
 
           preConfigure = "./autogen.sh";
 
@@ -130,43 +103,28 @@ callPackage ({
             "--disable-build-details" # for a (more) reproducible build
             "--with-modules"
             "--with-json"
+            "--with-native-compilation"
           ]
-          ++ (lib.optional stdenv.isDarwin (lib.withFeature withNS "ns"))
-          ++ (if withNS
-              then [ "--disable-ns-self-contained" ]
-              else if withX
-              then [ "--with-x-toolkit=${toolkit}" "--with-xft" "--with-cairo" ]
-              else [ "--with-x=no" "--with-xpm=no" "--with-jpeg=no" "--with-png=no" "--with-gif=no" "--with-tiff=no" ])
-          ++ lib.optional withXwidgets "--with-xwidgets"
-          ++ lib.optional nativeComp "--with-native-compilation"
-          ++ lib.optional withImageMagick "--with-imagemagick"
-          ;
+          ++ lib.optionals stdenv.isLinux [
+            "--with-x=no" "--with-xpm=no" "--with-jpeg=no" "--with-png=no" "--with-gif=no" "--with-tiff=no"
+          ]
+          ++ lib.optionals stdenv.isDarwin [
+            "--disable-ns-self-contained" "--with-ns" "--with-imagemagick"
+          ];
+
 
           installTargets = [ "tags" "install" ];
 
           postInstall = ''
               mkdir -p $out/share/emacs/site-lisp
-              cp ${siteStart} $out/share/emacs/site-lisp/site-start.el
+              cp ${./site-start.el} $out/share/emacs/site-lisp/site-start.el
 
               $out/bin/emacs --batch -f batch-byte-compile $out/share/emacs/site-lisp/site-start.el
 
               siteVersionDir=`ls $out/share/emacs | grep -v site-lisp | head -n 1`
 
               rm -r $out/share/emacs/$siteVersionDir/site-lisp
-              '' + lib.optionalString withCsrc ''
-              for srcdir in src lisp lwlib ; do
-                dstdir=$out/share/emacs/$siteVersionDir/$srcdir
-                mkdir -p $dstdir
-                find $srcdir -name "*.[chm]" -exec cp {} $dstdir \;
-                cp $srcdir/TAGS $dstdir
-                echo '((nil . ((tags-file-name . "TAGS"))))' > $dstdir/.dir-locals.el
-              done
-              '' + lib.optionalString withNS ''
-              mkdir -p $out/Applications
-              mv nextstep/Emacs.app $out/Applications
-              '' + lib.optionalString (nativeComp && withNS) ''
-              ln -snf $out/lib/emacs/*/native-lisp $out/Applications/Emacs.app/Contents/native-lisp
-              '' + lib.optionalString nativeComp ''
+
               echo "Generating native-compiled trampolines..."
               # precompile trampolines in parallel, but avoid spawning one process per trampoline.
               # 1000 is a rough lower bound on the number of trampolines compiled.
@@ -179,44 +137,24 @@ callPackage ({
               $out/bin/emacs --batch \
                 --eval "(add-to-list 'native-comp-eln-load-path \"$out/share/emacs/native-lisp\")" \
                 -f batch-native-compile $out/share/emacs/site-lisp/site-start.el
+              ''
+          + lib.optionalString stdenv.isDarwin ''
+              mkdir -p $out/Applications
+              mv nextstep/Emacs.app $out/Applications
+              ln -snf $out/lib/emacs/*/native-lisp $out/Applications/Emacs.app/Contents/native-lisp
               '';
-
-          postFixup = lib.concatStringsSep "\n" [
-            (lib.optionalString (stdenv.isLinux && withX && toolkit == "lucid") ''
-                patchelf --set-rpath \
-                  "$(patchelf --print-rpath "$out/bin/emacs"):${lib.makeLibraryPath [ libXcursor ]}" \
-                  "$out/bin/emacs"
-                patchelf --add-needed "libXcursor.so.1" "$out/bin/emacs"
-                '') ];
-
-          passthru = {
-            inherit nativeComp;
-            pkgs = dontRecurseIntoAttrs (emacsPackagesFor emacs);
-          };
 
           meta = with lib; {
             description = "The extensible, customizable GNU text editor";
             homepage    = "https://www.gnu.org/software/emacs/";
             license     = licenses.gpl3Plus;
-            maintainers = with maintainers; [ lovek323 peti jwiegley adisbladis ];
+            maintainers = [ "Heinrich Hartmann <heinrich@heinrichhartmann.com" ];
             platforms   = platforms.all;
-
-            longDescription = ''
-                GNU Emacs is an extensible, customizable text editor—and more.  At its
-                core is an interpreter for Emacs Lisp, a dialect of the Lisp
-                programming language with extensions to support text editing.
-
-                The features of GNU Emacs include: content-sensitive editing modes,
-                including syntax coloring, for a wide variety of file types including
-                plain text, source code, and HTML; complete built-in documentation,
-                including a tutorial for new users; full Unicode support for nearly all
-                human languages and their scripts; highly customizable, using Emacs
-                Lisp code or a graphical interface; a large number of extensions that
-                add other functionality, including a project planner, mail and news
-                reader, debugger interface, calendar, and more.  Many of these
-                extensions are distributed with GNU Emacs; others are available
-                separately.
-                '';
+            longDescription = ''Latest emacs with --json --native-comp'';
           };
         }
-    )) {}
+    )) {
+      libXaw = xorg.libXaw;
+      inherit (darwin.apple_sdk.frameworks) AppKit GSS ImageIO;
+      inherit (darwin) sigtool;
+    }
