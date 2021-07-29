@@ -5,6 +5,8 @@ This repository contains nix-files that package emacs@head from https://github.c
 1. `--with-json`
 2. `--with-natove-compilation`
 
+Warning: To actually pull the latest version, the `src` entries in the files have to be updated.
+
 ## emacs-override.nix
 
 This file uses the nixpkgs provided derivations, and makes the necessary adjustments
