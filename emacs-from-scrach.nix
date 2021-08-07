@@ -10,6 +10,7 @@ pkgs.stdenv.mkDerivation {
       rev = "4d439744685b6b2492685124994120ebd1fa4abb";
       sha256 = "00vxb83571r39r0dbzkr9agjfmqs929lhq9rwf8akvqghc412apf";
   };
+  buildInputs = [ pkgs.autoconf pkgs.texinfo pkgs.ncurses pkgs.gnutls pkgs.pkg-config pkgs.jansson ];
   postPatch = pkgs.lib.concatStringsSep "\n" [
     ''
     substituteInPlace src/Makefile.in --replace 'RUN_TEMACS = ./temacs' 'RUN_TEMACS = env -i ./temacs'
@@ -20,7 +21,6 @@ pkgs.stdenv.mkDerivation {
     ''
   ];
   preConfigure = "./autogen.sh";
-  configureFlags = ["--without-all"];
-  buildInputs = [ pkgs.autoconf pkgs.texinfo pkgs.ncurses ];
+  configureFlags = [ "--with-json" ];
   enableParallelBuilding = true;
 }
