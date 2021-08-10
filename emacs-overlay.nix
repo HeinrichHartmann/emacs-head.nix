@@ -3,8 +3,13 @@ with rec {
   pkgs = import <nixpkgs> { overlays = [ emacs-overlay ]; };
 };
 
-pkgs.emacsGcc.override {
-  withX = false;
-  withGTK2 = false;
-  withGTK3 = false;
+rec {
+  emacs-head = pkgs.emacsGcc.overrideAttrs ( old: {
+    configureFlags = old.configureFlags ++ [ "--with-json"  ];
+  });
+  emacs-head-nox = emacs-head.override {
+    withX = false;
+    withGTK2 = false;
+    withGTK3 = false;
+  };
 }

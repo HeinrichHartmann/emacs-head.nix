@@ -1,7 +1,7 @@
 with (import <nixpkgs> {});
 
 {
-  emacs-gcc = (emacs-nox.overrideAttrs (old : {
+  emacs-head = (emacs-nox.overrideAttrs (old : {
     pname = "emacs";
     version = "head";
     src = fetchFromGitHub {
@@ -18,7 +18,7 @@ with (import <nixpkgs> {});
     nativeComp = true;
   };
 
-  emacs-gcc-nox = (emacs-nox.overrideAttrs (old : {
+  emacs-head-nox = (emacs-nox.overrideAttrs (old : {
     pname = "emacs-nox";
     version = "head";
     src = fetchFromGitHub {
